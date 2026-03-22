@@ -2,7 +2,7 @@ use rusqlite::{params, Connection};
 
 use crate::clipboard::types::{ClipboardItem, NewClipboardItem};
 
-pub fn insert_item(db_path: &str, item: &NewClipboardItem) -> Result<(), rusqlite::Error> {
+pub fn insert_item(db_path: &str, item: &NewClipboardItem, limit: u32) -> Result<(), rusqlite::Error> {
     let conn = Connection::open(db_path)?;
 
     // If duplicate hash exists, update the timestamp (bump to top)
@@ -25,12 +25,12 @@ pub fn insert_item(db_path: &str, item: &NewClipboardItem) -> Result<(), rusqlit
         )?;
     }
 
-    // Auto-prune: keep max 500 non-pinned items
+    // Auto-prune: keep only the most recent `limit` non-pinned items
     conn.execute(
         "DELETE FROM clipboard_items WHERE pinned = 0 AND id NOT IN (
-            SELECT id FROM clipboard_items WHERE pinned = 0 ORDER BY created_at DESC LIMIT 500
+            SELECT id FROM clipboard_items WHERE pinned = 0 ORDER BY created_at DESC LIMIT ?1
         )",
-        [],
+        params![limit],
     )?;
 
     Ok(())

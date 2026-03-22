@@ -1,12 +1,39 @@
 use sha2::{Digest, Sha256};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use log::{info, error, debug};
 
 use crate::clipboard::types::NewClipboardItem;
 use crate::db;
+use crate::settings;
+
+/// Run a subprocess with a hard timeout. Kills the process if it exceeds the deadline.
+/// This prevents xclip/wl-paste from hanging the watcher thread indefinitely.
+fn run_with_timeout(cmd: &mut Command, timeout: Duration) -> Result<std::process::Output, Box<dyn std::error::Error + Send + Sync>> {
+    let child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let pid = child.id();
+    let (tx, rx) = mpsc::channel::<Result<std::process::Output, std::io::Error>>();
+
+    thread::spawn(move || {
+        let _ = tx.send(child.wait_with_output());
+    });
+
+    match rx.recv_timeout(timeout) {
+        Ok(result) => Ok(result?),
+        Err(_) => {
+            // Kill the hung process so the spawned thread can exit cleanly
+            let _ = Command::new("kill").args(["-9", &pid.to_string()]).output();
+            Err(format!("clipboard command timed out after {}ms", timeout.as_millis()).into())
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum DisplayServer {
@@ -66,7 +93,8 @@ impl ClipboardWatcher {
                                 hash,
                             };
 
-                            if let Err(e) = db::queries::insert_item(&db_path, &item) {
+                            let limit = settings::load_settings().clipboard_limit;
+                            if let Err(e) = db::queries::insert_item(&db_path, &item, limit) {
                                 error!("Failed to save clipboard item: {}", e);
                             }
                         }
@@ -98,7 +126,8 @@ impl ClipboardWatcher {
                                         hash,
                                     };
 
-                                    if let Err(e) = db::queries::insert_item(&db_path, &item) {
+                                    let limit = settings::load_settings().clipboard_limit;
+                                    if let Err(e) = db::queries::insert_item(&db_path, &item, limit) {
                                         error!("Failed to save clipboard image: {}", e);
                                     }
                                 }
@@ -119,14 +148,16 @@ impl ClipboardWatcher {
 }
 
 /// Read text from clipboard (supports X11 via xclip and Wayland via wl-paste)
-fn read_clipboard_text(display: DisplayServer) -> Result<String, Box<dyn std::error::Error>> {
+fn read_clipboard_text(display: DisplayServer) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let output = match display {
-        DisplayServer::X11 => Command::new("xclip")
-            .args(["-selection", "clipboard", "-o"])
-            .output()?,
-        DisplayServer::Wayland => Command::new("wl-paste")
-            .args(["--no-newline", "--type", "text/plain"])
-            .output()?,
+        DisplayServer::X11 => run_with_timeout(
+            Command::new("xclip").args(["-selection", "clipboard", "-o"]),
+            Duration::from_millis(1500),
+        )?,
+        DisplayServer::Wayland => run_with_timeout(
+            Command::new("wl-paste").args(["--no-newline", "--type", "text/plain"]),
+            Duration::from_millis(1500),
+        )?,
     };
 
     if output.status.success() {
@@ -137,14 +168,16 @@ fn read_clipboard_text(display: DisplayServer) -> Result<String, Box<dyn std::er
 }
 
 /// Read image from clipboard (PNG format, supports X11 and Wayland)
-fn read_clipboard_image(display: DisplayServer) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+fn read_clipboard_image(display: DisplayServer) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
     let output = match display {
-        DisplayServer::X11 => Command::new("xclip")
-            .args(["-selection", "clipboard", "-t", "image/png", "-o"])
-            .output()?,
-        DisplayServer::Wayland => Command::new("wl-paste")
-            .args(["--no-newline", "--type", "image/png"])
-            .output()?,
+        DisplayServer::X11 => run_with_timeout(
+            Command::new("xclip").args(["-selection", "clipboard", "-t", "image/png", "-o"]),
+            Duration::from_millis(1500),
+        )?,
+        DisplayServer::Wayland => run_with_timeout(
+            Command::new("wl-paste").args(["--no-newline", "--type", "image/png"]),
+            Duration::from_millis(1500),
+        )?,
     };
 
     if output.status.success() && !output.stdout.is_empty() {

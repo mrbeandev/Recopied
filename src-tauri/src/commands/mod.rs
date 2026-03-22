@@ -149,3 +149,12 @@ pub fn set_autostart(enabled: bool) -> Result<(), String> {
 
     Ok(())
 }
+
+#[command]
+pub fn set_clipboard_limit(limit: u32) -> Result<(), String> {
+    let safe = limit.max(1); // minimum of 1, no upper cap
+    let mut current = settings::load_settings();
+    current.clipboard_limit = safe;
+    settings::save_settings(&current)?;
+    Ok(())
+}

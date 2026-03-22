@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { getSettings, setShortcut, setAutostart } from "../lib/tauri";
-import { Settings, Keyboard, Check, AlertCircle, Power } from "lucide-react";
+import { getSettings, setShortcut, setAutostart, setClipboardLimit } from "../lib/tauri";
+import { Settings, Keyboard, Check, AlertCircle, Power, List, TriangleAlert } from "lucide-react";
 
 interface Props {
 	onClose: () => void;
@@ -45,6 +45,7 @@ function keyEventToShortcutString(e: KeyboardEvent): string | null {
 export default function SettingsPanel({ onClose }: Props) {
 	const [currentShortcut, setCurrentShortcut] = useState("");
 	const [autostart, setAutostartState] = useState(false);
+	const [clipboardLimit, setClipboardLimitState] = useState(20);
 	const [recording, setRecording] = useState(false);
 	const [recordedKeys, setRecordedKeys] = useState("");
 	const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
@@ -54,6 +55,7 @@ export default function SettingsPanel({ onClose }: Props) {
 		getSettings().then((s) => {
 			setCurrentShortcut(s.shortcut);
 			setAutostartState(s.autostart);
+			setClipboardLimitState(s.clipboardLimit ?? 20);
 		});
 	}, []);
 
@@ -194,6 +196,49 @@ export default function SettingsPanel({ onClose }: Props) {
 							</button>
 						</div>
 					</div>
+				</div>
+
+				{/* Clipboard limit setting */}
+				<div className="mb-4">
+					<div className="mb-2 flex items-center gap-2">
+						<List size={13} className="text-text-secondary" />
+						<span className="text-text-primary text-[12px] font-medium">Clipboard Limit</span>
+					</div>
+
+					<div className="bg-bg-secondary border-border rounded-(--radius-card) border p-3">
+						<div className="mb-2 flex items-center justify-between">
+							<span className="text-text-secondary text-[11px]">Max items to keep in history</span>
+						</div>
+						<div className="flex items-center gap-2">
+							<input
+								type="number"
+								min={1}
+								value={clipboardLimit}
+								onChange={(e) => {
+									const val = Math.max(1, parseInt(e.target.value) || 1);
+									setClipboardLimitState(val);
+								}}
+								onBlur={async (e) => {
+									const val = Math.max(1, parseInt(e.target.value) || 1);
+									setClipboardLimitState(val);
+									try {
+										await setClipboardLimit(val);
+									} catch (err) {
+										console.error("Failed to save clipboard limit:", err);
+									}
+								}}
+								className="bg-bg-active text-text-primary border-border w-20 rounded border px-2 py-1 text-center font-mono text-[13px] font-semibold focus:outline-none"
+							/>
+							<span className="text-text-muted text-[10px]">items</span>
+						</div>
+						{clipboardLimit > 20 && (
+							<div className="mt-2 flex items-start gap-1.5 rounded bg-yellow-500/10 px-2 py-1.5">
+								<TriangleAlert size={11} className="mt-0.5 shrink-0 text-yellow-400" />
+								<span className="text-[10px] text-yellow-400">Increase this at your own risk — large histories can slow down the app.</span>
+							</div>
+						)}
+					</div>
+					<p className="text-text-muted mt-2 text-[10px]">Older items are pruned automatically when the limit is reached. Pinned items are never deleted.</p>
 				</div>
 			</div>
 		</div>

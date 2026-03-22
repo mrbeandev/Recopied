@@ -40,6 +40,7 @@ export async function setWindowMode(fullscreen: boolean): Promise<void> {
 export interface AppSettings {
 	shortcut: string;
 	autostart: boolean;
+	clipboardLimit: number;
 }
 
 export async function getSettings(): Promise<AppSettings> {
@@ -52,4 +53,8 @@ export async function setShortcut(shortcut: string): Promise<void> {
 
 export async function setAutostart(enabled: boolean): Promise<void> {
 	return invoke("set_autostart", { enabled });
+}
+
+export async function setClipboardLimit(limit: number): Promise<void> {
+	return invoke("set_clipboard_limit", { limit });
 }

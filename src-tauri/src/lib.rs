@@ -174,6 +174,7 @@ pub fn run() {
             commands::get_settings,
             commands::set_shortcut,
             commands::set_autostart,
+            commands::set_clipboard_limit,
         ])
         .run(tauri::generate_context!())
         .expect("Error while running Recopied");

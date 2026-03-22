@@ -3,12 +3,20 @@ use std::fs;
 use std::path::PathBuf;
 
 const DEFAULT_SHORTCUT: &str = "Ctrl+Shift+V";
+const DEFAULT_CLIPBOARD_LIMIT: u32 = 20;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     pub shortcut: String,
     #[serde(default)]
     pub autostart: bool,
+    #[serde(default = "default_clipboard_limit")]
+    pub clipboard_limit: u32,
+}
+
+fn default_clipboard_limit() -> u32 {
+    DEFAULT_CLIPBOARD_LIMIT
 }
 
 impl Default for AppSettings {
@@ -16,6 +24,7 @@ impl Default for AppSettings {
         Self {
             shortcut: DEFAULT_SHORTCUT.to_string(),
             autostart: false,
+            clipboard_limit: DEFAULT_CLIPBOARD_LIMIT,
         }
     }
 }

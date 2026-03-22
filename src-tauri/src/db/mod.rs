@@ -21,6 +21,9 @@ CREATE INDEX IF NOT EXISTS idx_pinned ON clipboard_items(pinned);
 
 pub fn init_db(db_path: &str) -> Result<(), rusqlite::Error> {
     let conn = Connection::open(db_path)?;
+    // WAL mode: allows concurrent reads + one write without blocking — prevents
+    // the watcher thread and IPC handlers from locking each other out.
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;")?;
     conn.execute_batch(MIGRATION)?;
     info!("Database initialized at {}", db_path);
     Ok(())
