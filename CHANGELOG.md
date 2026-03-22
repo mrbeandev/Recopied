@@ -5,6 +5,18 @@ All notable changes to Recopied will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-22
+
+### Added
+
+- **Configurable clipboard limit** — Set the maximum number of items to keep in history from the Settings panel (default: 20, no upper cap). Oldest non-pinned items are automatically pruned when the limit is reached. Pinned items are never deleted.
+- Warning banner in Settings when limit is set above 20 ("increase at your own risk").
+
+### Fixed
+
+- **Clipboard watcher hang** — `xclip`/`wl-paste` subprocesses now run with a 1.5-second timeout and are killed if they stall. This was the root cause of the app freezing and stopping to save new items over time.
+- **SQLite WAL mode** — Database now opens in WAL journal mode with `synchronous=NORMAL`, preventing read/write lock contention between the background watcher thread and the UI commands.
+
 ## [1.0.0] - 2025-07-16
 
 ### Added
