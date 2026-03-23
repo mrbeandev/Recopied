@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Recopied
+Comment=Linux clipboard manager with Win+V shortcut
+Exec=recopied
+Icon=com.recopied.app
+Type=Application
+Categories=Utility;
+Keywords=clipboard;copy;paste;history;
+StartupWMClass=recopied
+# Run in background — the app lives in the system tray
+NoDisplay=false

@@ -1,0 +1,76 @@
+app-id: com.recopied.app
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+command: recopied
+
+# Permissions required by Recopied
+finish-args:
+  # Display
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --device=dri
+
+  # Clipboard tools need X11/Wayland access - already covered above
+
+  # Tray icon (works on KDE + GNOME with AppIndicator extension)
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.StatusNotifierWatcher
+  - --own-name=com.recopied.app
+
+  # Global shortcut (Win+V) — needs access to the desktop session bus
+  - --talk-name=com.canonical.AppMenu.Registrar
+
+  # App data dirs (SQLite DB, saved images, settings)
+  # XDG dirs are auto-redirected to ~/.var/app/com.recopied.app/{config,data}/
+  # but we still need the parent xdg-data to exist
+  - --filesystem=xdg-data/recopied:create
+
+  # WebKit rendering tweak: avoid GPU acceleration bugs in sandbox
+  - --env=WEBKIT_DISABLE_COMPOSITING_MODE=1
+
+modules:
+  # xclip — used by the watcher to read the X11 clipboard
+  - name: xclip
+    buildsystem: autotools
+    build-options:
+      env:
+        ACLOCAL_FLAGS: -I /usr/share/aclocal
+    sources:
+      - type: git
+        url: https://github.com/astrand/xclip.git
+        tag: '0.13'
+
+  # wl-clipboard — used by the watcher to read the Wayland clipboard (wl-paste)
+  - name: wl-clipboard
+    buildsystem: meson
+    sources:
+      - type: git
+        url: https://github.com/bugaevc/wl-clipboard.git
+        tag: v2.2.1
+
+  # Recopied — the main application (pre-built binary from GitHub releases)
+  - name: recopied
+    buildsystem: simple
+    build-commands:
+      # Install the application binary
+      - install -Dm755 recopied /app/bin/recopied
+      # Install icons
+      - install -Dm644 ../src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.recopied.app.png
+      - install -Dm644 ../src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.recopied.app.png
+      - install -Dm644 ../src-tauri/icons/icon.svg /app/share/icons/hicolor/scalable/apps/com.recopied.app.svg
+      # Install desktop entry and metadata
+      - install -Dm644 com.recopied.app.desktop /app/share/applications/com.recopied.app.desktop
+      - install -Dm644 com.recopied.app.metainfo.xml /app/share/metainfo/com.recopied.app.metainfo.xml
+    sources:
+      # The pre-built binary is downloaded by CI and placed here before flatpak-builder runs.
+      # To build locally: copy your cargo tauri build output binary here first:
+      #   cp src-tauri/target/release/recopied flatpak/recopied
+      - type: file
+        path: recopied
+      - type: file
+        path: com.recopied.app.desktop
+      - type: file
+        path: com.recopied.app.metainfo.xml

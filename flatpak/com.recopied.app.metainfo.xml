@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.recopied.app</id>
+  <name>Recopied</name>
+  <summary>Linux clipboard manager with Win+V shortcut</summary>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      Recopied is a clipboard manager for Linux that brings the familiar Win+V
+      clipboard history experience from Windows 11. Press Win+V to open a
+      popup showing your recent clipboard items — text and images — and click
+      to paste instantly.
+    </p>
+    <p>Key features:</p>
+    <ul>
+      <li>Win+V global shortcut to open clipboard history popup</li>
+      <li>Stores text and image clipboard items in a local SQLite database</li>
+      <li>Configurable clipboard history limit (default: 20 items)</li>
+      <li>Full-text search across clipboard history</li>
+      <li>System tray icon for quick access and settings</li>
+      <li>Works on X11 and Wayland</li>
+      <li>Lightweight — built with Tauri (Rust + WebKit)</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.recopied.app.desktop</launchable>
+
+  <url type="homepage">https://github.com/mrbeandev/Recopied</url>
+  <url type="bugtracker">https://github.com/mrbeandev/Recopied/issues</url>
+  <url type="vcs-browser">https://github.com/mrbeandev/Recopied</url>
+
+  <developer id="com.github.mrbeandev">
+    <name>mrbeandev</name>
+  </developer>
+
+  <categories>
+    <category>Utility</category>
+  </categories>
+
+  <keywords>
+    <keyword>clipboard</keyword>
+    <keyword>clipboard manager</keyword>
+    <keyword>copy paste</keyword>
+    <keyword>history</keyword>
+  </keywords>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Clipboard history popup (Win+V)</caption>
+      <image>https://raw.githubusercontent.com/mrbeandev/Recopied/main/public/screenshot-main.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="1.1.0" date="2026-03-23">
+      <description>
+        <ul>
+          <li>Added configurable clipboard history limit (Settings panel)</li>
+          <li>Fixed clipboard watcher hanging when xclip has no owner (1.5s timeout)</li>
+          <li>Fixed settings UI showing stale value after changing clipboard limit</li>
+          <li>Enabled SQLite WAL mode to prevent lock contention</li>
+        </ul>
+      </description>
+    </release>
+    <release version="1.0.0" date="2026-03-01">
+      <description>
+        <p>Initial release of Recopied.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1"/>
+
+  <provides>
+    <binary>recopied</binary>
+  </provides>
+</component>
