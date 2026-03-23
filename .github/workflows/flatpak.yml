@@ -142,8 +142,20 @@ jobs:
             --default-branch=stable \
             repo/
 
-      - name: Add repo index page
+      - name: Add .flatpakrepo file and index page
         run: |
+          cat > repo/recopied.flatpakrepo << 'REPO'
+          [Flatpak Repo]
+          Title=Recopied
+          Url=https://mrbeandev.github.io/Recopied/
+          Homepage=https://github.com/mrbeandev/Recopied
+          Comment=Clipboard manager for Linux with Win+V shortcut
+          Description=Self-hosted Flatpak repository for Recopied
+          Icon=https://raw.githubusercontent.com/mrbeandev/Recopied/main/src-tauri/icons/128x128.png
+          GPGVerify=false
+          DefaultBranch=stable
+          REPO
+
           cat > repo/index.html << 'HTML'
           <!DOCTYPE html>
           <html lang="en">
@@ -154,10 +166,10 @@ jobs:
           <h1>📋 Recopied — Flatpak Repository</h1>
           <p>This is the official self-hosted Flatpak repository for <strong>Recopied</strong>,
              a Linux clipboard manager with a Win+V shortcut.</p>
-          <h2>Add this repository</h2>
-          <pre><code>flatpak remote-add --if-not-exists recopied https://mrbeandev.github.io/Recopied/</code></pre>
-          <h2>Install Recopied</h2>
-          <pre><code>flatpak install recopied com.recopied.app</code></pre>
+          <h2>One-click install</h2>
+          <p>Download <a href="recopied.flatpakrepo">recopied.flatpakrepo</a> and open it with Software Manager, or run:</p>
+          <pre><code>flatpak remote-add --if-not-exists --from recopied https://mrbeandev.github.io/Recopied/recopied.flatpakrepo
+          flatpak install recopied com.recopied.app</code></pre>
           <h2>Or install directly from the .flatpak bundle</h2>
           <p>Download <code>recopied.flatpak</code> from the
              <a href="https://github.com/mrbeandev/Recopied/releases">GitHub Releases</a> page, then:</p>
