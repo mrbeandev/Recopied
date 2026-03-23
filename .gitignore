@@ -34,3 +34,9 @@ pnpm-debug.log*
 MEMORY.md
 GOAL.md
 PLAN.md
+
+# Flatpak local build artifacts
+flatpak-build-dir/
+flatpak-repo/
+flatpak/recopied
+.flatpak-builder/

@@ -13,6 +13,7 @@ https://github.com/user-attachments/assets/cc34254d-d99f-4c64-afad-85a6aac9f2fd
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tauri v2](https://img.shields.io/badge/Tauri-v2-orange)](https://v2.tauri.app)
 [![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-dea584)](https://www.rust-lang.org)
+[![Flatpak](https://img.shields.io/badge/Flatpak-available-4A90D9)](https://mrbeandev.github.io/Recopied/)
 
 </div>
 
@@ -48,6 +49,38 @@ Recopied captures everything you copy — text and images — and lets you recal
 | Icons | [Lucide](https://lucide.dev) |
 | Database | SQLite (via `rusqlite`) |
 | Clipboard | `xclip` (X11) / `arboard` (for writes) |
+
+## Installation
+
+### Flatpak (recommended — all distros)
+
+```bash
+flatpak remote-add --if-not-exists recopied https://mrbeandev.github.io/Recopied/
+flatpak install recopied com.recopied.app
+```
+
+Or install directly from the bundle on the [Releases](https://github.com/mrbeandev/Recopied/releases) page:
+
+```bash
+flatpak install recopied.flatpak
+```
+
+### Debian / Ubuntu / Mint (.deb)
+
+Download `Recopied_*.deb` from the [Releases](https://github.com/mrbeandev/Recopied/releases) page:
+
+```bash
+sudo dpkg -i Recopied_1.1.0_amd64.deb
+```
+
+### AppImage
+
+Download `Recopied_*.AppImage` from [Releases](https://github.com/mrbeandev/Recopied/releases), make executable and run:
+
+```bash
+chmod +x Recopied_1.1.0_amd64.AppImage
+./Recopied_1.1.0_amd64.AppImage
+```
 
 ## Prerequisites
 
@@ -86,6 +119,8 @@ cargo tauri build
 This produces:
 - `.deb` package — `src-tauri/target/release/bundle/deb/`
 - `.AppImage` — `src-tauri/target/release/bundle/appimage/`
+
+The Flatpak bundle is built automatically by GitHub Actions on each release (see [`.github/workflows/flatpak.yml`](.github/workflows/flatpak.yml)).
 
 ## Usage
 
@@ -165,7 +200,7 @@ The script will:
 - Commit, tag, and push to GitHub
 - Create a **draft** GitHub Release with the built artifacts attached
 
-Open the draft release on GitHub, review the notes, then publish it.
+Open the draft release on GitHub, review the notes, then publish it. Publishing the release automatically triggers the Flatpak workflow, which builds the `.flatpak` bundle and publishes it to the [self-hosted Flatpak repo](https://mrbeandev.github.io/Recopied/).
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
