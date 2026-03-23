@@ -18,19 +18,16 @@ permissions:
   id-token: write   # for Pages OIDC token
 
 jobs:
-  build-flatpak:
-    name: Build Flatpak bundle
+  # ── Job 1: Download the .deb on ubuntu-latest (gh CLI available here) ────
+  prepare:
+    name: Extract binary from release
     runs-on: ubuntu-latest
-    # Run inside the official flatpak-builder Docker image for gnome-47 SDK
-    container:
-      image: bilelmoussaoui/flatpak-github-actions:gnome-47
-      options: --privileged
-
+    outputs:
+      tag: ${{ steps.tag.outputs.value }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Determine which release tag we're building ────────────────────────
       - name: Set release tag
         id: tag
         run: |
@@ -40,15 +37,13 @@ jobs:
             echo "value=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
           fi
 
-      # ── Download the .deb from the GitHub release and extract the binary ──
       - name: Download release .deb and extract binary
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.tag.outputs.value }}"
-          echo "Building Flatpak for release: $TAG"
+          echo "Preparing binary for release: $TAG"
 
-          # Download the .deb asset
           mkdir -p /tmp/release
           gh release download "$TAG" \
             --repo "${{ github.repository }}" \
@@ -58,34 +53,47 @@ jobs:
           DEB=$(ls /tmp/release/*.deb | head -1)
           echo "Found deb: $DEB"
 
-          # Extract the binary from the .deb
           dpkg-deb -x "$DEB" /tmp/extracted
           cp /tmp/extracted/usr/bin/recopied flatpak/recopied
           chmod +x flatpak/recopied
-
           echo "Binary ready: $(file flatpak/recopied)"
 
-      # ── Build the Flatpak bundle ──────────────────────────────────────────
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: recopied-binary
+          path: flatpak/recopied
+          retention-days: 1
+
+  # ── Job 2: Build the Flatpak inside the official GNOME SDK container ─────
+  build-flatpak:
+    name: Build Flatpak bundle
+    runs-on: ubuntu-latest
+    needs: prepare
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:gnome-47
+      options: --privileged
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download recopied binary
+        uses: actions/download-artifact@v4
+        with:
+          name: recopied-binary
+          path: flatpak/
+
+      - name: Make binary executable
+        run: chmod +x flatpak/recopied
+
       - name: Build Flatpak
         uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: recopied.flatpak
           manifest-path: flatpak/com.recopied.app.yml
-          # Cache the SDK and built modules between runs
           cache: true
           cache-key: flatpak-v1-gnome47-${{ hashFiles('flatpak/com.recopied.app.yml') }}
 
-      # ── Upload the bundle to the GitHub release ───────────────────────────
-      - name: Upload Flatpak bundle to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ steps.tag.outputs.value }}"
-          gh release upload "$TAG" recopied.flatpak \
-            --repo "${{ github.repository }}" \
-            --clobber
-
-      # ── Persist the bundle for the next job ──────────────────────────────
       - name: Upload bundle artifact
         uses: actions/upload-artifact@v4
         with:
@@ -93,60 +101,46 @@ jobs:
           path: recopied.flatpak
           retention-days: 1
 
-  publish-repo:
-    name: Publish static Flatpak repo to GitHub Pages
+  # ── Job 3: Upload bundle to release + deploy ostree repo to Pages ─────────
+  publish:
+    name: Upload to release & publish Pages repo
     runs-on: ubuntu-latest
-    needs: build-flatpak
-
+    needs: [prepare, build-flatpak]
     environment:
       name: github-pages
-      url: ${{ steps.pages.outputs.page_url }}
-
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download Flatpak bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: flatpak-bundle
 
       - name: Install flatpak tools
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y flatpak
 
-      # ── Download the bundle built in the previous job ────────────────────
-      - name: Download Flatpak bundle
-        uses: actions/download-artifact@v4
-        with:
-          name: flatpak-bundle
-
-      # ── Check out or create the flatpak-repo branch ──────────────────────
-      - name: Restore or initialize flatpak-repo
+      - name: Upload Flatpak bundle to GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Try to restore an existing static repo from the flatpak-repo branch
-          if git ls-remote --exit-code origin flatpak-repo; then
-            git fetch origin flatpak-repo
-            git checkout -b flatpak-repo origin/flatpak-repo
-            mkdir -p repo
-            # The tracked content is an ostree-style static repo inside ./repo/
-          else
-            echo "No flatpak-repo branch yet — initialising a fresh repo"
-            mkdir -p repo
-          fi
-          git checkout main  # switch back so we can use the repo/ dir
+          TAG="${{ needs.prepare.outputs.tag }}"
+          gh release upload "$TAG" recopied.flatpak \
+            --repo "${{ github.repository }}" \
+            --clobber
 
-      # ── Export the new bundle into the ostree repo ───────────────────────
-      - name: Export bundle into repo
+      - name: Export bundle into static ostree repo
         run: |
-          # flatpak build-bundle creates the bundle; flatpak build-import-bundle imports it
+          mkdir -p repo
           flatpak build-import-bundle repo/ recopied.flatpak
-
-      # ── Regenerate the static repo metadata ─────────────────────────────
-      - name: Update repo metadata
-        run: |
           flatpak build-update-repo \
             --generate-static-deltas \
             --default-branch=stable \
             repo/
 
-      # ── Add a minimal index.html so the page looks good in a browser ─────
       - name: Add repo index page
         run: |
           cat > repo/index.html << 'HTML'
@@ -159,31 +153,25 @@ jobs:
           <h1>📋 Recopied — Flatpak Repository</h1>
           <p>This is the official self-hosted Flatpak repository for <strong>Recopied</strong>,
              a Linux clipboard manager with a Win+V shortcut.</p>
-
           <h2>Add this repository</h2>
-          <pre><code>flatpak remote-add --if-not-exists recopied \
-            https://mrbeandev.github.io/Recopied/</code></pre>
-
+          <pre><code>flatpak remote-add --if-not-exists recopied https://mrbeandev.github.io/Recopied/</code></pre>
           <h2>Install Recopied</h2>
           <pre><code>flatpak install recopied com.recopied.app</code></pre>
-
-          <h2>Or install directly from the bundle file</h2>
+          <h2>Or install directly from the .flatpak bundle</h2>
           <p>Download <code>recopied.flatpak</code> from the
              <a href="https://github.com/mrbeandev/Recopied/releases">GitHub Releases</a> page, then:</p>
           <pre><code>flatpak install recopied.flatpak</code></pre>
-
           <hr>
           <p><a href="https://github.com/mrbeandev/Recopied">GitHub</a> ·
              <a href="https://github.com/mrbeandev/Recopied/releases">Releases</a></p>
           </body></html>
           HTML
 
-      # ── Deploy the static repo to GitHub Pages ───────────────────────────
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: repo/
 
       - name: Deploy to GitHub Pages
-        id: pages
+        id: deploy
         uses: actions/deploy-pages@v4
