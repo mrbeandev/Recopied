@@ -121,7 +121,7 @@ jobs:
       - name: Install flatpak tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y flatpak
+          sudo apt-get install -y flatpak ostree
 
       - name: Upload Flatpak bundle to GitHub release
         env:
@@ -135,6 +135,7 @@ jobs:
       - name: Export bundle into static ostree repo
         run: |
           mkdir -p repo
+          ostree init --mode=archive-z2 --repo=repo/
           flatpak build-import-bundle repo/ recopied.flatpak
           flatpak build-update-repo \
             --generate-static-deltas \
