@@ -81,9 +81,9 @@ modules:
       # Install the application binary
       - install -Dm755 recopied /app/bin/recopied
       # Install icons
-      - install -Dm644 ../src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.recopied.app.png
-      - install -Dm644 ../src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.recopied.app.png
-      - install -Dm644 ../src-tauri/icons/icon.svg /app/share/icons/hicolor/scalable/apps/com.recopied.app.svg
+      - install -Dm644 128x128.png /app/share/icons/hicolor/128x128/apps/com.recopied.app.png
+      - install -Dm644 32x32.png /app/share/icons/hicolor/32x32/apps/com.recopied.app.png
+      - install -Dm644 icon.svg /app/share/icons/hicolor/scalable/apps/com.recopied.app.svg
       # Install desktop entry and metadata
       - install -Dm644 com.recopied.app.desktop /app/share/applications/com.recopied.app.desktop
       - install -Dm644 com.recopied.app.metainfo.xml /app/share/metainfo/com.recopied.app.metainfo.xml
@@ -97,3 +97,10 @@ modules:
         path: com.recopied.app.desktop
       - type: file
         path: com.recopied.app.metainfo.xml
+      # Icons — included explicitly since flatpak-builder only has what's listed as sources
+      - type: file
+        path: ../src-tauri/icons/128x128.png
+      - type: file
+        path: ../src-tauri/icons/32x32.png
+      - type: file
+        path: ../src-tauri/icons/icon.svg
