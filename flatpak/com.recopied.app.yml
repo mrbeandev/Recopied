@@ -66,8 +66,6 @@ modules:
   - name: wl-clipboard
     buildsystem: meson
     config-opts:
-      # Disable meson test suite — tests need a live Wayland compositor
-      - -Dtests=false
       # Disable fish completions — they install to /usr/share/fish which is
       # read-only in the flatpak-builder sandbox
       - -Dfishcompletiondir=/app/share/fish/vendor_completions.d
