@@ -1,6 +1,6 @@
 app-id: com.recopied.app
 runtime: org.gnome.Platform
-runtime-version: '47'
+runtime-version: '48'
 sdk: org.gnome.Sdk
 command: recopied
 
@@ -36,6 +36,9 @@ modules:
   - name: xclip
     buildsystem: autotools
     build-options:
+      # Skip 'make check' — xclip tests try to talk to a real X clipboard,
+      # which is not available in the flatpak-builder sandbox.
+      no-make-check: true
       env:
         ACLOCAL_FLAGS: -I /usr/share/aclocal
     sources:
@@ -46,6 +49,9 @@ modules:
   # wl-clipboard — used by the watcher to read the Wayland clipboard (wl-paste)
   - name: wl-clipboard
     buildsystem: meson
+    config-opts:
+      # Disable meson test suite — tests need a live Wayland compositor
+      - -Dtests=false
     sources:
       - type: git
         url: https://github.com/bugaevc/wl-clipboard.git
