@@ -55,7 +55,7 @@ Recopied captures everything you copy — text and images — and lets you recal
 ### Flatpak (recommended — all distros)
 
 ```bash
-flatpak remote-add --if-not-exists recopied https://mrbeandev.github.io/Recopied/
+flatpak remote-add --if-not-exists --no-gpg-verify recopied https://mrbeandev.github.io/Recopied/
 flatpak install recopied com.recopied.app
 ```
 
