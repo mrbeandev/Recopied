@@ -5,6 +5,13 @@ All notable changes to Recopied will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-04-14
+
+### Added
+
+- **Copy notifications** — System notification shown whenever content is copied to clipboard. Configurable in Settings with enable/disable toggle, option to show or hide copied content in the notification body, and a test notification button.
+- **Flatpak support** — Recopied is now available as a Flatpak package via a self-hosted repository. Install with `flatpak remote-add` + `flatpak install`.
+
 ## [1.1.0] - 2026-03-22
 
 ### Added
