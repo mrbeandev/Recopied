@@ -31,3 +31,4 @@ image = "0.25"
 arboard = { version = "3", features = ["wayland-data-control"] }
 chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.22"
+notify-rust = "4"

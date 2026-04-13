@@ -1,6 +1,7 @@
 mod clipboard;
 mod commands;
 mod db;
+pub mod notification;
 pub mod settings;
 
 use clipboard::watcher::ClipboardWatcher;
@@ -132,9 +133,9 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Start clipboard watcher
+            // Start clipboard watcher with app handle for notifications
             let watcher = ClipboardWatcher::new();
-            watcher.start(db_path.clone());
+            watcher.start(db_path.clone(), app.handle().clone());
             info!("Recopied started — clipboard watcher active");
 
             // Register global shortcut from saved settings
@@ -175,6 +176,8 @@ pub fn run() {
             commands::set_shortcut,
             commands::set_autostart,
             commands::set_clipboard_limit,
+            commands::set_notification_settings,
+            commands::test_notification,
         ])
         .run(tauri::generate_context!())
         .expect("Error while running Recopied");

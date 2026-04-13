@@ -1,6 +1,26 @@
 import { useState, useEffect, useCallback } from "react";
-import { getSettings, setShortcut, setAutostart, setClipboardLimit } from "../lib/tauri";
-import { Settings, Keyboard, Check, AlertCircle, Power, List, TriangleAlert } from "lucide-react";
+import {
+	getSettings,
+	setShortcut,
+	setAutostart,
+	setClipboardLimit,
+	setNotificationSettings,
+	testNotification,
+} from "../lib/tauri";
+import type { NotificationSettings } from "../lib/tauri";
+import {
+	Settings,
+	Keyboard,
+	Check,
+	AlertCircle,
+	Power,
+	List,
+	TriangleAlert,
+	Bell,
+	BellRing,
+	Eye,
+	EyeOff,
+} from "lucide-react";
 
 interface Props {
 	onClose: () => void;
@@ -51,13 +71,34 @@ export default function SettingsPanel({ onClose }: Props) {
 	const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
 	const [errorMsg, setErrorMsg] = useState("");
 
+	// Notification settings
+	const [notifEnabled, setNotifEnabled] = useState(true);
+	const [notifShowContent, setNotifShowContent] = useState(true);
+
 	useEffect(() => {
 		getSettings().then((s) => {
 			setCurrentShortcut(s.shortcut);
 			setAutostartState(s.autostart);
 			setClipboardLimitState(s.clipboardLimit ?? 20);
+			if (s.notification) {
+				setNotifEnabled(s.notification.enabled);
+				setNotifShowContent(s.notification.showContent);
+			}
 		});
 	}, []);
+
+	const saveNotificationSettings = useCallback(
+		(overrides: Partial<NotificationSettings> = {}) => {
+			const settings: NotificationSettings = {
+				enabled: overrides.enabled ?? notifEnabled,
+				showContent: overrides.showContent ?? notifShowContent,
+			};
+			setNotificationSettings(settings).catch((err) =>
+				console.error("Failed to save notification settings:", err),
+			);
+		},
+		[notifEnabled, notifShowContent],
+	);
 
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent) => {
@@ -239,6 +280,71 @@ export default function SettingsPanel({ onClose }: Props) {
 						)}
 					</div>
 					<p className="text-text-muted mt-2 text-[10px]">Older items are pruned automatically when the limit is reached. Pinned items are never deleted.</p>
+				</div>
+
+				{/* Copy Notification setting */}
+				<div className="mb-4">
+					<div className="mb-2 flex items-center gap-2">
+						<Bell size={13} className="text-text-secondary" />
+						<span className="text-text-primary text-[12px] font-medium">Copy Notification</span>
+					</div>
+
+					<div className="bg-bg-secondary border-border rounded-(--radius-card) border p-3">
+						{/* Enable toggle */}
+						<div className="flex items-center justify-between">
+							<span className="text-text-secondary text-[11px]">Show notification on copy</span>
+							<button
+								onClick={() => {
+									const next = !notifEnabled;
+									setNotifEnabled(next);
+									saveNotificationSettings({ enabled: next });
+								}}
+								className={`relative h-5 w-9 cursor-pointer rounded-full transition-colors ${notifEnabled ? "bg-accent" : "bg-bg-active"}`}
+							>
+								<span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${notifEnabled ? "translate-x-4" : ""}`} />
+							</button>
+						</div>
+
+						{notifEnabled && (
+							<>
+								{/* Show content toggle */}
+								<div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+									<div className="flex items-center gap-1.5">
+										{notifShowContent ? <Eye size={11} className="text-text-secondary" /> : <EyeOff size={11} className="text-text-secondary" />}
+										<span className="text-text-secondary text-[11px]">Show copied content in notification</span>
+									</div>
+									<button
+										onClick={() => {
+											const next = !notifShowContent;
+											setNotifShowContent(next);
+											saveNotificationSettings({ showContent: next });
+										}}
+										className={`relative h-5 w-9 cursor-pointer rounded-full transition-colors ${notifShowContent ? "bg-accent" : "bg-bg-active"}`}
+									>
+										<span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${notifShowContent ? "translate-x-4" : ""}`} />
+									</button>
+								</div>
+
+								{/* Test notification button */}
+								<div className="mt-3 border-t border-border pt-3">
+									<button
+										onClick={async () => {
+											try {
+												await testNotification();
+											} catch (err) {
+												console.error("Failed to send test notification:", err);
+											}
+										}}
+										className="bg-bg-hover text-text-secondary hover:text-text-primary flex w-full cursor-pointer items-center justify-center gap-1.5 rounded py-1.5 text-[11px] transition-colors"
+									>
+										<BellRing size={11} />
+										Send test notification
+									</button>
+								</div>
+							</>
+						)}
+					</div>
+					<p className="text-text-muted mt-2 text-[10px]">Uses your system's notification handler to show a brief alert when content is copied.</p>
 				</div>
 			</div>
 		</div>

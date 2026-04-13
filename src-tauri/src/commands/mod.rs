@@ -3,7 +3,8 @@ use tauri::Manager;
 
 use crate::clipboard::types::ClipboardItem;
 use crate::db;
-use crate::settings;
+use crate::notification;
+use crate::settings::{self, NotificationSettings};
 
 #[command]
 pub fn get_history(limit: u32, offset: u32) -> Result<Vec<ClipboardItem>, String> {
@@ -156,5 +157,23 @@ pub fn set_clipboard_limit(limit: u32) -> Result<(), String> {
     let mut current = settings::load_settings();
     current.clipboard_limit = safe;
     settings::save_settings(&current)?;
+    Ok(())
+}
+
+#[command]
+pub fn set_notification_settings(notification: NotificationSettings) -> Result<(), String> {
+    let mut current = settings::load_settings();
+    current.notification = notification;
+    settings::save_settings(&current)?;
+    Ok(())
+}
+
+#[command]
+pub async fn test_notification(app: tauri::AppHandle) -> Result<(), String> {
+    notification::send_copy_notification(
+        &app,
+        "text",
+        Some("This is a test notification from Recopied!"),
+    );
     Ok(())
 }

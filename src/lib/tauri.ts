@@ -37,10 +37,16 @@ export async function setWindowMode(fullscreen: boolean): Promise<void> {
 	return invoke("set_window_mode", { fullscreen });
 }
 
+export interface NotificationSettings {
+	enabled: boolean;
+	showContent: boolean;
+}
+
 export interface AppSettings {
 	shortcut: string;
 	autostart: boolean;
 	clipboardLimit: number;
+	notification: NotificationSettings;
 }
 
 export async function getSettings(): Promise<AppSettings> {
@@ -57,4 +63,12 @@ export async function setAutostart(enabled: boolean): Promise<void> {
 
 export async function setClipboardLimit(limit: number): Promise<void> {
 	return invoke("set_clipboard_limit", { limit });
+}
+
+export async function setNotificationSettings(notification: NotificationSettings): Promise<void> {
+	return invoke("set_notification_settings", { notification });
+}
+
+export async function testNotification(): Promise<void> {
+	return invoke("test_notification");
 }

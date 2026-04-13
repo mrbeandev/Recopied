@@ -7,12 +7,36 @@ const DEFAULT_CLIPBOARD_LIMIT: u32 = 20;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct NotificationSettings {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_true")]
+    pub show_content: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for NotificationSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_content: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     pub shortcut: String,
     #[serde(default)]
     pub autostart: bool,
     #[serde(default = "default_clipboard_limit")]
     pub clipboard_limit: u32,
+    #[serde(default)]
+    pub notification: NotificationSettings,
 }
 
 fn default_clipboard_limit() -> u32 {
@@ -25,6 +49,7 @@ impl Default for AppSettings {
             shortcut: DEFAULT_SHORTCUT.to_string(),
             autostart: false,
             clipboard_limit: DEFAULT_CLIPBOARD_LIMIT,
+            notification: NotificationSettings::default(),
         }
     }
 }

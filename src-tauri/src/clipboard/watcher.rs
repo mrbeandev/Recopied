@@ -5,9 +5,11 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use log::{info, error, debug};
+use tauri::AppHandle;
 
 use crate::clipboard::types::NewClipboardItem;
 use crate::db;
+use crate::notification;
 use crate::settings;
 
 /// Run a subprocess with a hard timeout. Kills the process if it exceeds the deadline.
@@ -60,7 +62,7 @@ impl ClipboardWatcher {
         }
     }
 
-    pub fn start(&self, db_path: String) {
+    pub fn start(&self, db_path: String, app_handle: AppHandle) {
         let last_hash = self.last_hash.clone();
 
         thread::spawn(move || {
@@ -89,13 +91,22 @@ impl ClipboardWatcher {
                                 content_type: "text".to_string(),
                                 text_content: Some(text),
                                 image_path: None,
-                                preview,
+                                preview: preview.clone(),
                                 hash,
                             };
 
                             let limit = settings::load_settings().clipboard_limit;
-                            if let Err(e) = db::queries::insert_item(&db_path, &item, limit) {
-                                error!("Failed to save clipboard item: {}", e);
+                            match db::queries::insert_item(&db_path, &item, limit) {
+                                Ok(_) => {
+                                    notification::send_copy_notification(
+                                        &app_handle,
+                                        "text",
+                                        preview.as_deref(),
+                                    );
+                                }
+                                Err(e) => {
+                                    error!("Failed to save clipboard item: {}", e);
+                                }
                             }
                         }
                     }
@@ -127,8 +138,17 @@ impl ClipboardWatcher {
                                     };
 
                                     let limit = settings::load_settings().clipboard_limit;
-                                    if let Err(e) = db::queries::insert_item(&db_path, &item, limit) {
-                                        error!("Failed to save clipboard image: {}", e);
+                                    match db::queries::insert_item(&db_path, &item, limit) {
+                                        Ok(_) => {
+                                            notification::send_copy_notification(
+                                                &app_handle,
+                                                "image",
+                                                None,
+                                            );
+                                        }
+                                        Err(e) => {
+                                            error!("Failed to save clipboard image: {}", e);
+                                        }
                                     }
                                 }
                                 Err(e) => {

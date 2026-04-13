@@ -8,5 +8,8 @@ export default defineConfig({
 	clearScreen: false,
 	server: {
 		strictPort: true,
+		watch: {
+			ignored: ["**/flatpak-build-dir/**", "**/flatpak-repo/**", "**/.flatpak-builder/**"],
+		},
 	},
 });
