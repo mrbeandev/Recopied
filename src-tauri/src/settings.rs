@@ -37,6 +37,10 @@ pub struct AppSettings {
     pub clipboard_limit: u32,
     #[serde(default)]
     pub notification: NotificationSettings,
+    /// When enabled, selecting an item simulates Ctrl+V in the previously
+    /// focused window after the popup hides (X11 only, requires xdotool).
+    #[serde(default)]
+    pub auto_paste: bool,
 }
 
 fn default_clipboard_limit() -> u32 {
@@ -50,6 +54,7 @@ impl Default for AppSettings {
             autostart: false,
             clipboard_limit: DEFAULT_CLIPBOARD_LIMIT,
             notification: NotificationSettings::default(),
+            auto_paste: false,
         }
     }
 }
