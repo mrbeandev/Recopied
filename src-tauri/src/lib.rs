@@ -3,11 +3,39 @@ mod commands;
 mod db;
 pub mod notification;
 pub mod settings;
+pub mod telemetry;
+pub mod util;
 
 use clipboard::watcher::ClipboardWatcher;
 use tauri::Manager;
 use tauri::PhysicalPosition;
 use log::info;
+use serde_json::json;
+
+/// How often the background image cleanup runs (it also runs at startup).
+const IMAGE_CLEANUP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(6 * 60 * 60);
+
+fn start_image_cleanup_scheduler() {
+    std::thread::Builder::new()
+        .name("image-cleanup".into())
+        .spawn(|| {
+            // Give the app a moment to finish starting up first.
+            std::thread::sleep(std::time::Duration::from_secs(20));
+            loop {
+                let result = std::panic::catch_unwind(|| commands::run_image_cleanup("scheduled"));
+                match result {
+                    Ok(Err(e)) => {
+                        log::error!("Image cleanup failed: {}", e);
+                        telemetry::record("image_cleanup_failed", json!({ "error": e.to_string() }));
+                    }
+                    Err(_) => telemetry::record("image_cleanup_failed", json!({ "error": "panic" })),
+                    Ok(Ok(_)) => {}
+                }
+                std::thread::sleep(IMAGE_CLEANUP_INTERVAL);
+            }
+        })
+        .ok();
+}
 
 pub fn position_window_bottom_right(window: &tauri::WebviewWindow) {
     if let Ok(Some(monitor)) = window.current_monitor() {
@@ -24,11 +52,13 @@ fn toggle_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
             window.hide().ok();
+            telemetry::record("window_hidden", json!({ "via": "toggle" }));
         } else {
             // Position near the cursor so "focus follows mouse" works
             position_window_at_cursor(&window);
             window.show().ok();
             window.set_focus().ok();
+            telemetry::record("window_shown", json!({ "via": "toggle" }));
         }
     }
 }
@@ -72,12 +102,26 @@ fn position_window_at_cursor(window: &tauri::WebviewWindow) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let startup_settings = settings::load_settings();
+    telemetry::init(startup_settings.telemetry_enabled);
+    telemetry::install_panic_hook();
+
     let db_path = db::get_db_path();
 
     if let Err(e) = db::init_db(&db_path) {
         eprintln!("Failed to initialize database: {}", e);
+        telemetry::record("db_init_failed", json!({ "error": e.to_string() }));
         std::process::exit(1);
     }
+
+    telemetry::record(
+        "app_started",
+        json!({
+            "environment": telemetry::environment(),
+            "settings": &startup_settings,
+            "storage": db::queries::storage_stats(&db_path).ok(),
+        }),
+    );
 
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -89,6 +133,7 @@ pub fn run() {
                     if event.state == ShortcutState::Pressed {
                         let shortcut_str = shortcut.to_string();
                         info!("Shortcut pressed: {}", shortcut_str);
+                        telemetry::record("shortcut_pressed", json!({ "shortcut": shortcut_str }));
                         toggle_window(app);
                     }
                 })
@@ -122,6 +167,7 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "show" => toggle_window(app),
                     "quit" => {
+                        telemetry::record("app_quit", json!({ "via": "tray" }));
                         app.exit(0);
                     }
                     _ => {}
@@ -138,17 +184,30 @@ pub fn run() {
             watcher.start(db_path.clone(), app.handle().clone());
             info!("Recopied started — clipboard watcher active");
 
+            // Delete expired / orphaned images now and every few hours.
+            start_image_cleanup_scheduler();
+
             // Register global shortcut from saved settings
             use tauri_plugin_global_shortcut::GlobalShortcutExt;
             let saved = settings::load_settings();
             match app.global_shortcut().register(saved.shortcut.as_str()) {
-                Ok(_) => info!("Registered {} global shortcut", saved.shortcut),
+                Ok(_) => {
+                    info!("Registered {} global shortcut", saved.shortcut);
+                    telemetry::record("shortcut_registered", json!({ "shortcut": saved.shortcut }));
+                }
                 Err(e) => {
                     eprintln!("Failed to register {}: {}", saved.shortcut, e);
+                    telemetry::record("shortcut_register_failed", json!({ "shortcut": saved.shortcut, "error": e.to_string() }));
                     // Try Ctrl+Shift+V as fallback
                     match app.global_shortcut().register("Ctrl+Shift+V") {
-                        Ok(_) => info!("Registered Ctrl+Shift+V as fallback shortcut"),
-                        Err(e2) => eprintln!("Failed to register fallback shortcut: {}", e2),
+                        Ok(_) => {
+                            info!("Registered Ctrl+Shift+V as fallback shortcut");
+                            telemetry::record("shortcut_registered", json!({ "shortcut": "Ctrl+Shift+V", "fallback": true }));
+                        }
+                        Err(e2) => {
+                            eprintln!("Failed to register fallback shortcut: {}", e2);
+                            telemetry::record("shortcut_register_failed", json!({ "shortcut": "Ctrl+Shift+V", "fallback": true, "error": e2.to_string() }));
+                        }
                     }
                 }
             }
@@ -179,6 +238,13 @@ pub fn run() {
             commands::set_auto_paste,
             commands::set_notification_settings,
             commands::test_notification,
+            commands::cleanup_images_now,
+            commands::set_image_retention_days,
+            commands::set_telemetry_enabled,
+            commands::get_diagnostics,
+            commands::export_diagnostics,
+            commands::open_diagnostics_folder,
+            commands::record_ui_event,
         ])
         .run(tauri::generate_context!())
         .expect("Error while running Recopied");

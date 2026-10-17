@@ -32,6 +32,9 @@ Recopied captures everything you copy — text and images — and lets you recal
 - **Keyboard Navigation** — Arrow keys to browse, Enter to paste, Escape to close
 - **Click to Paste** — Click any item to copy it to your clipboard
 - **Image Support** — Captures and previews clipboard images
+- **Automatic Image Cleanup** — Copied images are deleted from disk after 30 days (configurable; pinned images are kept), and "Clear all" removes their files too
+- **Auto Paste** — Optionally paste the selected item straight into the previous window (X11, needs `xdotool`)
+- **Local Diagnostics** — An on-device activity log you can export and attach to bug reports (never uploaded, never contains what you copy)
 - **Fullscreen Mode** — Expand the popup to fill the screen for a focused view
 - **System Tray** — Runs silently in the tray with quick access
 - **Configurable Shortcut** — Change the hotkey from the built-in settings panel
@@ -143,11 +146,22 @@ Settings are stored at `~/.local/share/recopied/settings.json`:
 
 ```json
 {
-  "shortcut": "Ctrl+Shift+V"
+  "shortcut": "Ctrl+Shift+V",
+  "autostart": false,
+  "clipboardLimit": 20,
+  "autoPaste": false,
+  "imageRetentionDays": 30,
+  "telemetryEnabled": true
 }
 ```
 
 Clipboard history is stored in a SQLite database at `~/.local/share/recopied/recopied.db`. Images are saved to `~/.local/share/recopied/images/`.
+
+### Diagnostics & bug reports
+
+Recopied keeps a **local-only** diagnostics log at `~/.local/share/recopied/telemetry/events.jsonl` (one JSON event per line, capped at ~10 MB). It records what the app does — clipboard captures, pastes, saves, deletions, cleanups, setting changes, errors and crashes — but **never the text or images you copy** (only sizes, types and short hash prefixes). Nothing is ever sent over the network.
+
+If something goes wrong, open **Settings → Diagnostics → Export report**. This writes `recopied-diagnostics-<date>.json` to your Downloads folder; attach it to a [GitHub issue](https://github.com/mrbeandev/Recopied/issues). You can turn the log off in the same section.
 
 ## Project Structure
 

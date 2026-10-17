@@ -41,6 +41,19 @@ pub struct AppSettings {
     /// focused window after the popup hides (X11 only, requires xdotool).
     #[serde(default)]
     pub auto_paste: bool,
+    /// Record a local diagnostics log (never uploaded). On by default.
+    #[serde(default = "default_true")]
+    pub telemetry_enabled: bool,
+    /// Copied images older than this many days are deleted automatically
+    /// (pinned images are kept). 0 disables the age-based cleanup.
+    #[serde(default = "default_image_retention_days")]
+    pub image_retention_days: u32,
+}
+
+pub const DEFAULT_IMAGE_RETENTION_DAYS: u32 = 30;
+
+fn default_image_retention_days() -> u32 {
+    DEFAULT_IMAGE_RETENTION_DAYS
 }
 
 fn default_clipboard_limit() -> u32 {
@@ -55,6 +68,8 @@ impl Default for AppSettings {
             clipboard_limit: DEFAULT_CLIPBOARD_LIMIT,
             notification: NotificationSettings::default(),
             auto_paste: false,
+            telemetry_enabled: true,
+            image_retention_days: DEFAULT_IMAGE_RETENTION_DAYS,
         }
     }
 }
@@ -121,5 +136,9 @@ pub fn load_settings() -> AppSettings {
 pub fn save_settings(settings: &AppSettings) -> Result<(), String> {
     let path = settings_path();
     let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
-    fs::write(path, json).map_err(|e| e.to_string())
+    // Write-then-rename so a crash mid-write can never leave a half-written file
+    // (which would silently reset every setting to its default).
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, json).map_err(|e| e.to_string())?;
+    fs::rename(&tmp, &path).map_err(|e| e.to_string())
 }

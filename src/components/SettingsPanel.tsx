@@ -7,8 +7,14 @@ import {
 	setNotificationSettings,
 	testNotification,
 	setAutoPaste,
+	setImageRetentionDays,
+	cleanupImagesNow,
+	setTelemetryEnabled,
+	getDiagnostics,
+	exportDiagnostics,
+	openDiagnosticsFolder,
 } from "../lib/tauri";
-import type { NotificationSettings } from "../lib/tauri";
+import type { NotificationSettings, Diagnostics } from "../lib/tauri";
 import {
 	Settings,
 	Keyboard,
@@ -22,7 +28,26 @@ import {
 	Eye,
 	EyeOff,
 	ClipboardPaste,
+	Image as ImageIcon,
+	Activity,
+	Download,
+	FolderOpen,
+	Brush,
 } from "lucide-react";
+
+function formatBytes(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+	if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+	return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function formatAgo(seconds: number | null): string {
+	if (seconds === null) return "never";
+	if (seconds < 60) return `${seconds}s ago`;
+	if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+	return `${Math.floor(seconds / 3600)}h ago`;
+}
 
 interface Props {
 	onClose: () => void;
@@ -80,6 +105,26 @@ export default function SettingsPanel({ onClose }: Props) {
 	// Auto-paste setting
 	const [autoPaste, setAutoPasteState] = useState(false);
 
+	// Image storage + diagnostics
+	const [retentionDays, setRetentionDaysState] = useState(30);
+	const [telemetryOn, setTelemetryOn] = useState(true);
+	const [diag, setDiag] = useState<Diagnostics | null>(null);
+	const [cleanupMsg, setCleanupMsg] = useState("");
+	const [exportPath, setExportPath] = useState("");
+	const [exportError, setExportError] = useState("");
+
+	const refreshDiagnostics = useCallback(() => {
+		getDiagnostics()
+			.then(setDiag)
+			.catch((err) => console.error("Failed to load diagnostics:", err));
+	}, []);
+
+	useEffect(() => {
+		refreshDiagnostics();
+		const t = setInterval(refreshDiagnostics, 5000);
+		return () => clearInterval(t);
+	}, [refreshDiagnostics]);
+
 	useEffect(() => {
 		getSettings().then((s) => {
 			setCurrentShortcut(s.shortcut);
@@ -90,6 +135,8 @@ export default function SettingsPanel({ onClose }: Props) {
 				setNotifShowContent(s.notification.showContent);
 			}
 			setAutoPasteState(s.autoPaste ?? false);
+			setRetentionDaysState(s.imageRetentionDays ?? 30);
+			setTelemetryOn(s.telemetryEnabled ?? true);
 		});
 	}, []);
 
@@ -378,6 +425,160 @@ export default function SettingsPanel({ onClose }: Props) {
 						)}
 					</div>
 					<p className="text-text-muted mt-2 text-[10px]">Uses your system's notification handler to show a brief alert when content is copied.</p>
+				</div>
+				{/* Image storage setting */}
+				<div className="mb-4">
+					<div className="mb-2 flex items-center gap-2">
+						<ImageIcon size={13} className="text-text-secondary" />
+						<span className="text-text-primary text-[12px] font-medium">Image Storage</span>
+					</div>
+
+					<div className="bg-bg-secondary border-border rounded-(--radius-card) border p-3">
+						<div className="mb-2 flex items-center justify-between">
+							<span className="text-text-secondary text-[11px]">Delete copied images after</span>
+						</div>
+						<div className="flex items-center gap-2">
+							<input
+								type="number"
+								min={0}
+								value={retentionDays}
+								onChange={(e) => setRetentionDaysState(Math.max(0, parseInt(e.target.value) || 0))}
+								onBlur={async (e) => {
+									const val = Math.max(0, parseInt(e.target.value) || 0);
+									setRetentionDaysState(val);
+									try {
+										await setImageRetentionDays(val);
+									} catch (err) {
+										console.error("Failed to save image retention:", err);
+									}
+								}}
+								className="bg-bg-active text-text-primary border-border w-20 rounded border px-2 py-1 text-center font-mono text-[13px] font-semibold focus:outline-none"
+							/>
+							<span className="text-text-muted text-[10px]">days {retentionDays === 0 && "(never)"}</span>
+						</div>
+
+						{diag && (
+							<div className="text-text-secondary mt-3 border-t border-border pt-3 text-[11px]">
+								<div className="flex justify-between">
+									<span>Images on disk</span>
+									<span className="text-text-primary font-mono">
+										{diag.storage.imageFiles} · {formatBytes(diag.storage.imageBytes)}
+									</span>
+								</div>
+								{diag.storage.orphanFiles > 0 && (
+									<div className="mt-1 flex justify-between text-yellow-400">
+										<span>Not in history (leftovers)</span>
+										<span className="font-mono">
+											{diag.storage.orphanFiles} · {formatBytes(diag.storage.orphanBytes)}
+										</span>
+									</div>
+								)}
+							</div>
+						)}
+
+						<button
+							onClick={async () => {
+								setCleanupMsg("Cleaning…");
+								try {
+									const r = await cleanupImagesNow();
+									setCleanupMsg(r.removedFiles > 0 ? `Removed ${r.removedFiles} image${r.removedFiles !== 1 ? "s" : ""}, freed ${formatBytes(r.freedBytes)}` : "Nothing to clean up");
+									refreshDiagnostics();
+								} catch (err) {
+									setCleanupMsg(`Cleanup failed: ${String(err)}`);
+								}
+							}}
+							className="bg-bg-hover text-text-secondary hover:text-text-primary mt-3 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded py-1.5 text-[11px] transition-colors"
+						>
+							<Brush size={11} />
+							Clean up images now
+						</button>
+						{cleanupMsg && <p className="text-text-muted mt-2 text-center text-[10px]">{cleanupMsg}</p>}
+					</div>
+					<p className="text-text-muted mt-2 text-[10px]">Unpinned images older than this are deleted from history and disk automatically. "Clear all" also deletes the image files. Pinned images are always kept. Set 0 to keep images until they fall out of history.</p>
+				</div>
+
+				{/* Diagnostics */}
+				<div className="mb-4">
+					<div className="mb-2 flex items-center gap-2">
+						<Activity size={13} className="text-text-secondary" />
+						<span className="text-text-primary text-[12px] font-medium">Diagnostics</span>
+					</div>
+
+					<div className="bg-bg-secondary border-border rounded-(--radius-card) border p-3">
+						<div className="flex items-center justify-between gap-3">
+							<span className="text-text-secondary text-[11px]">Keep a local diagnostics log</span>
+							<button
+								onClick={() => {
+									const next = !telemetryOn;
+									setTelemetryOn(next);
+									setTelemetryEnabled(next)
+										.then(refreshDiagnostics)
+										.catch((err) => console.error("Failed to toggle diagnostics:", err));
+								}}
+								className={`relative h-5 w-9 cursor-pointer shrink-0 rounded-full transition-colors ${telemetryOn ? "bg-accent" : "bg-bg-active"}`}
+							>
+								<span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${telemetryOn ? "translate-x-4" : ""}`} />
+							</button>
+						</div>
+
+						{diag && (
+							<div className="text-text-secondary mt-3 space-y-1 border-t border-border pt-3 text-[11px]">
+								<div className="flex justify-between">
+									<span>Clipboard watcher</span>
+									<span className={`font-mono ${diag.watcher.secondsSinceLastPoll !== null && diag.watcher.secondsSinceLastPoll < 10 ? "text-green-400" : "text-danger"}`}>
+										{diag.watcher.secondsSinceLastPoll !== null && diag.watcher.secondsSinceLastPoll < 10 ? "running" : "stalled"}
+									</span>
+								</div>
+								<div className="flex justify-between">
+									<span>Last capture</span>
+									<span className="text-text-primary font-mono">{formatAgo(diag.watcher.secondsSinceLastCapture)}</span>
+								</div>
+								<div className="flex justify-between">
+									<span>Captured this session</span>
+									<span className="text-text-primary font-mono">{diag.watcher.capturesThisSession}</span>
+								</div>
+								{(diag.watcher.saveFailuresThisSession > 0 || diag.watcher.restartsThisSession > 0 || diag.watcher.recoveredPanicsThisSession > 0) && (
+									<div className="flex justify-between text-yellow-400">
+										<span>Errors / restarts / recovered crashes</span>
+										<span className="font-mono">
+											{diag.watcher.saveFailuresThisSession} / {diag.watcher.restartsThisSession} / {diag.watcher.recoveredPanicsThisSession}
+										</span>
+									</div>
+								)}
+								<div className="flex justify-between">
+									<span>Log size</span>
+									<span className="text-text-primary font-mono">{formatBytes(diag.telemetryBytes)}</span>
+								</div>
+							</div>
+						)}
+
+						<div className="mt-3 flex gap-2 border-t border-border pt-3">
+							<button
+								onClick={async () => {
+									setExportError("");
+									try {
+										setExportPath(await exportDiagnostics());
+									} catch (err) {
+										setExportError(String(err));
+									}
+								}}
+								className="bg-accent/20 text-accent hover:bg-accent/30 flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded py-1.5 text-[11px] font-medium transition-colors"
+							>
+								<Download size={11} />
+								Export report
+							</button>
+							<button
+								onClick={() => openDiagnosticsFolder(exportPath || undefined).catch((err) => console.error(err))}
+								className="bg-bg-hover text-text-secondary hover:text-text-primary flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded py-1.5 text-[11px] transition-colors"
+							>
+								<FolderOpen size={11} />
+								Open folder
+							</button>
+						</div>
+						{exportPath && <p className="mt-2 text-[10px] break-all text-green-400">Saved to {exportPath}</p>}
+						{exportError && <p className="text-danger mt-2 text-[10px]">{exportError}</p>}
+					</div>
+					<p className="text-text-muted mt-2 text-[10px]">Records what the app does (copies, pastes, saves, errors, crashes) to help find bugs. Never includes the text or images you copy, and is never uploaded. To report a bug, export a report and attach it to a GitHub issue.</p>
 				</div>
 			</div>
 		</div>

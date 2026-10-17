@@ -48,6 +48,8 @@ export interface AppSettings {
 	clipboardLimit: number;
 	notification: NotificationSettings;
 	autoPaste: boolean;
+	telemetryEnabled: boolean;
+	imageRetentionDays: number;
 }
 
 export async function getSettings(): Promise<AppSettings> {
@@ -76,4 +78,72 @@ export async function setNotificationSettings(notification: NotificationSettings
 
 export async function testNotification(): Promise<void> {
 	return invoke("test_notification");
+}
+
+export interface CleanupReport {
+	removedItems: number;
+	removedFiles: number;
+	orphanFiles: number;
+	freedBytes: number;
+	errors: string[];
+}
+
+export interface StorageStats {
+	textItems: number;
+	imageItems: number;
+	pinnedItems: number;
+	oldestItem: string | null;
+	newestItem: string | null;
+	imageFiles: number;
+	imageBytes: number;
+	orphanFiles: number;
+	orphanBytes: number;
+	missingImageFiles: number;
+	dbBytes: number;
+}
+
+export interface Diagnostics {
+	telemetryEnabled: boolean;
+	telemetryDir: string;
+	telemetryBytes: number;
+	session: string;
+	watcher: {
+		generation: number;
+		secondsSinceLastPoll: number | null;
+		secondsSinceLastCapture: number | null;
+		capturesThisSession: number;
+		saveFailuresThisSession: number;
+		restartsThisSession: number;
+		recoveredPanicsThisSession: number;
+	};
+	storage: StorageStats;
+}
+
+export async function setImageRetentionDays(days: number): Promise<void> {
+	return invoke("set_image_retention_days", { days });
+}
+
+export async function cleanupImagesNow(): Promise<CleanupReport> {
+	return invoke("cleanup_images_now");
+}
+
+export async function setTelemetryEnabled(enabled: boolean): Promise<void> {
+	return invoke("set_telemetry_enabled", { enabled });
+}
+
+export async function getDiagnostics(): Promise<Diagnostics> {
+	return invoke("get_diagnostics");
+}
+
+export async function exportDiagnostics(): Promise<string> {
+	return invoke("export_diagnostics");
+}
+
+export async function openDiagnosticsFolder(path?: string): Promise<void> {
+	return invoke("open_diagnostics_folder", { path: path ?? null });
+}
+
+/** Fire-and-forget: log a UI-side event into the local diagnostics log. */
+export function recordUiEvent(event: string, data?: Record<string, unknown>): void {
+	invoke("record_ui_event", { event, data: data ?? null }).catch(() => {});
 }

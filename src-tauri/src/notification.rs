@@ -14,7 +14,7 @@ pub fn send_copy_notification(_app: &AppHandle, content_type: &str, preview: Opt
         match (content_type, preview) {
             ("text", Some(p)) => {
                 let truncated = if p.len() > 100 {
-                    format!("{}...", &p[..100])
+                    format!("{}...", crate::util::truncate_at_char_boundary(p, 100))
                 } else {
                     p.to_string()
                 };

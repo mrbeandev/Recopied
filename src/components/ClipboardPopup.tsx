@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { ClipboardItem } from "../types/clipboard";
-import { getHistory, searchHistory, clearHistory, hideWindow, pasteItem, startDrag } from "../lib/tauri";
+import { getHistory, searchHistory, clearHistory, hideWindow, pasteItem, startDrag, recordUiEvent } from "../lib/tauri";
 import SearchBar from "./SearchBar";
 import ClipboardItemCard from "./ClipboardItemCard";
 import EmptyState from "./EmptyState";
@@ -19,13 +19,24 @@ export default function ClipboardPopup({ isFullscreen, onToggleFullscreen }: Pro
 	const [selectedIndex, setSelectedIndex] = useState(-1);
 	const [showSettings, setShowSettings] = useState(false);
 	const listRef = useRef<HTMLDivElement>(null);
+	// Only log a fetch failure when it starts / changes, not on every 1s poll.
+	const lastFetchError = useRef<string | null>(null);
 
 	const fetchItems = useCallback(async () => {
 		try {
 			const data = search.trim() ? await searchHistory(search.trim()) : await getHistory(100, 0);
 			setItems(data);
+			if (lastFetchError.current !== null) {
+				recordUiEvent("history_fetch_recovered");
+				lastFetchError.current = null;
+			}
 		} catch (err) {
 			console.error("Failed to fetch clipboard history:", err);
+			const msg = String(err);
+			if (lastFetchError.current !== msg) {
+				lastFetchError.current = msg;
+				recordUiEvent("history_fetch_failed", { error: msg });
+			}
 		} finally {
 			setLoading(false);
 		}
@@ -54,7 +65,7 @@ export default function ClipboardPopup({ isFullscreen, onToggleFullscreen }: Pro
 				setSelectedIndex((prev) => (prev - 1 + items.length) % items.length);
 			} else if (e.key === "Enter" && selectedIndex >= 0 && selectedIndex < items.length) {
 				e.preventDefault();
-				pasteItem(items[selectedIndex].id);
+				pasteItem(items[selectedIndex].id).catch((err) => console.error("Paste failed:", err));
 			}
 		};
 		document.addEventListener("keydown", handler);

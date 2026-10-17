@@ -5,6 +5,24 @@ All notable changes to Recopied will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-10-17
+
+### Fixed
+
+- **Clipboard history silently stopped recording** — Copying text whose 200th byte fell inside a multi-byte character (emoji, accented letters, Indic scripts, "—", …) panicked the watcher thread, so nothing new was saved until the app was restarted. Previews are now cut on a character boundary, every poll is panic-isolated, and a supervisor restarts the watcher if it ever stalls.
+- **Images piling up on disk** — Images that dropped out of history (because of the clipboard limit) were never deleted from `~/.local/share/recopied/images/`. They are now deleted along with their history entries, and leftover files from older versions are cleaned up automatically.
+- **"Clear all" now deletes image files** — Clearing history removes the image files of cleared items and any orphaned image files.
+- **Duplicate saves when copying images** — Copies that offer both an image and text (e.g. an image copied from a browser) no longer make the watcher save the same items over and over.
+- Pasting an older pinned item no longer fails with "Item not found".
+- Notification previews no longer panic on non-ASCII text.
+- Database writes from the watcher and the UI now wait for each other instead of failing with "database is locked"; settings are saved atomically.
+
+### Added
+
+- **Automatic image cleanup** — Unpinned images older than 30 days (configurable in Settings → Image Storage) are deleted from history and disk. Runs at startup and every 6 hours; a "Clean up images now" button shows how much space is used.
+- **Local diagnostics log** — Records copies, pastes, saves, deletions, cleanups, setting changes, errors and crashes to `~/.local/share/recopied/telemetry/` (local only; never includes clipboard contents). Settings → Diagnostics shows watcher health and can export a report to attach to bug reports.
+- **Auto paste** (by @Sarthak-Raghav, #4) — Optionally simulate Ctrl+V in the previously focused window after selecting an item (X11, requires `xdotool`).
+
 ## [1.2.0] - 2026-04-14
 
 ### Added

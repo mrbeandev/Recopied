@@ -40,3 +40,9 @@ flatpak-build-dir/
 flatpak-repo/
 flatpak/recopied
 .flatpak-builder/
+# Local build/test scratch
+.cargo-home/
+.cargo-target/
+.npm-cache/
+.e2e/
+.pr4wt/
