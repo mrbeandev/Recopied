@@ -46,3 +46,4 @@ flatpak/recopied
 .npm-cache/
 .e2e/
 .pr4wt/
+.xdg-cache/
