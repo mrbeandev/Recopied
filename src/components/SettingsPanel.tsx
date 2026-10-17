@@ -6,6 +6,7 @@ import {
 	setClipboardLimit,
 	setNotificationSettings,
 	testNotification,
+	setAutoPaste,
 } from "../lib/tauri";
 import type { NotificationSettings } from "../lib/tauri";
 import {
@@ -20,6 +21,7 @@ import {
 	BellRing,
 	Eye,
 	EyeOff,
+	ClipboardPaste,
 } from "lucide-react";
 
 interface Props {
@@ -75,6 +77,9 @@ export default function SettingsPanel({ onClose }: Props) {
 	const [notifEnabled, setNotifEnabled] = useState(true);
 	const [notifShowContent, setNotifShowContent] = useState(true);
 
+	// Auto-paste setting
+	const [autoPaste, setAutoPasteState] = useState(false);
+
 	useEffect(() => {
 		getSettings().then((s) => {
 			setCurrentShortcut(s.shortcut);
@@ -84,6 +89,7 @@ export default function SettingsPanel({ onClose }: Props) {
 				setNotifEnabled(s.notification.enabled);
 				setNotifShowContent(s.notification.showContent);
 			}
+			setAutoPasteState(s.autoPaste ?? false);
 		});
 	}, []);
 
@@ -280,6 +286,33 @@ export default function SettingsPanel({ onClose }: Props) {
 						)}
 					</div>
 					<p className="text-text-muted mt-2 text-[10px]">Older items are pruned automatically when the limit is reached. Pinned items are never deleted.</p>
+				</div>
+
+				{/* Auto-paste setting */}
+				<div className="mb-4">
+					<div className="mb-2 flex items-center gap-2">
+						<ClipboardPaste size={13} className="text-text-secondary" />
+						<span className="text-text-primary text-[12px] font-medium">Auto Paste</span>
+					</div>
+
+					<div className="bg-bg-secondary border-border rounded-(--radius-card) border p-3">
+						<div className="flex items-center justify-between">
+							<span className="text-text-secondary text-[11px]">Paste selected item automatically</span>
+							<button
+								onClick={() => {
+									const next = !autoPaste;
+									setAutoPasteState(next);
+									setAutoPaste(next).catch((err) =>
+										console.error("Failed to save auto-paste setting:", err),
+									);
+								}}
+								className={`relative h-5 w-9 cursor-pointer rounded-full transition-colors ${autoPaste ? "bg-accent" : "bg-bg-active"}`}
+							>
+								<span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${autoPaste ? "translate-x-4" : ""}`} />
+							</button>
+						</div>
+					</div>
+					<p className="text-text-muted mt-2 text-[10px]">Simulates Ctrl+V in the previous window after selecting an item. Requires xdotool (X11). Note: terminals use Ctrl+Shift+V, so pasting there stays manual.</p>
 				</div>
 
 				{/* Copy Notification setting */}

@@ -176,6 +176,7 @@ pub fn run() {
             commands::set_shortcut,
             commands::set_autostart,
             commands::set_clipboard_limit,
+            commands::set_auto_paste,
             commands::set_notification_settings,
             commands::test_notification,
         ])

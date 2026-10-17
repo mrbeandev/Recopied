@@ -107,6 +107,21 @@ pub async fn paste_item(id: i64, app: tauri::AppHandle) -> Result<(), String> {
         window.hide().ok();
     }
 
+    // Optionally simulate Ctrl+V in the window that regains focus after the
+    // popup hides. Runs on a background thread so the command returns
+    // immediately; the short delay lets the window manager restore focus.
+    if settings::load_settings().auto_paste {
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            let result = std::process::Command::new("xdotool")
+                .args(["key", "--clearmodifiers", "ctrl+v"])
+                .status();
+            if let Err(e) = result {
+                log::warn!("auto-paste failed (is xdotool installed?): {e}");
+            }
+        });
+    }
+
     Ok(())
 }
 
@@ -149,6 +164,13 @@ pub fn set_autostart(enabled: bool) -> Result<(), String> {
     settings::save_settings(&current)?;
 
     Ok(())
+}
+
+#[command]
+pub fn set_auto_paste(enabled: bool) -> Result<(), String> {
+    let mut settings = settings::load_settings();
+    settings.auto_paste = enabled;
+    settings::save_settings(&settings)
 }
 
 #[command]

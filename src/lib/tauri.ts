@@ -47,6 +47,7 @@ export interface AppSettings {
 	autostart: boolean;
 	clipboardLimit: number;
 	notification: NotificationSettings;
+	autoPaste: boolean;
 }
 
 export async function getSettings(): Promise<AppSettings> {
@@ -63,6 +64,10 @@ export async function setAutostart(enabled: boolean): Promise<void> {
 
 export async function setClipboardLimit(limit: number): Promise<void> {
 	return invoke("set_clipboard_limit", { limit });
+}
+
+export async function setAutoPaste(enabled: boolean): Promise<void> {
+	return invoke("set_auto_paste", { enabled });
 }
 
 export async function setNotificationSettings(notification: NotificationSettings): Promise<void> {
